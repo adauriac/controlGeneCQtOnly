@@ -26,15 +26,10 @@ int MainWindow::setValues()
     for (uint i=0;i<m_registerVals.size();i++) {
         if (!m_modifiables[i])
             continue;
+        cpt += 1;
         int addr = m_adds[i];
         uint16_t dest = m_valuesToSend[i];
-
-        //if (modbus_write_registers(m_ctx,addr,1,&dest) == 1)
-        if ( 1)
-            cpt++;
-        else {
-            EXIT("Register at " +QString::number(addr)+" could not be written");
-        }
+        writeOneRegister(addr,dest);
     }
     return cpt;
 }      // FIN int MainWindow::setValues()
@@ -49,11 +44,7 @@ int MainWindow::getValues()
         int addr = m_adds[i];
         uint16_t dest;
         //if (modbus_read_registers(m_ctx,addr,1,&dest) == 1)
-        if (1)
-            cpt++;
-        else {
-            EXIT("Register at " +QString::number(addr)+" could not be read");
-        }
+        dest = readOneRegister(addr);
         m_registerVals[i] = dest;
     }
     return cpt;
@@ -80,9 +71,8 @@ void MainWindow::connectDevice() {
 
     if (!m_modbusDevice->connectDevice()) {
         EXIT(tr("La connexion à échoué"));
-    } else {
-        TRACE(tr("Connecté"));
     }
+
 
     ui->watchdogButton->setVisible(1);
     // m_NOTConnected = 0;
@@ -205,7 +195,6 @@ void MainWindow::mySetupUi(){
 
 void MainWindow::checkAlive() {
     uint16_t ans=readOneRegister(ALIVE_ADDRESS);
-    TRACE(QString::number(ans));
     if (ans != ALIVE_VALUE) {
         EXIT("Unexpected value "+QString::number(ans)+ " instead of "+QString::number(ALIVE_VALUE)+" in version Register "+QString::number(ALIVE_ADDRESS));
     }
@@ -222,7 +211,6 @@ void MainWindow::toggleWatchdog() {
     }
 }    // FIN void MainWindow::toggleWatchdog()
 // **********************************************************************************************
-
 
 void MainWindow::updateValuesOnGui() {
     // Writing board's registers
@@ -243,64 +231,38 @@ void MainWindow::updateValuesOnGui() {
 }      // FIN void MainWindow::updateValuesOnGui() {
 // ***********************************************************************************************
 
-void MainWindow::readReady()
-{
-    TRACE("Entering readReady");
-    auto reply = qobject_cast<QModbusReply *>(sender());
-    if (!reply)
-        return;
-    TRACE("3 lignes + bas");
-    if (reply->error() == QModbusDevice::NoError)  {
-        const QModbusDataUnit unit = reply->result();
-/*
-        ui->tableWidget->setRowCount(unit.valueCount());
-        for (uint i = 0; i < unit.valueCount(); i++) {
-            std::cout << unit.value(i) << std::endl;
-            QTableWidgetItem *addressItem = new QTableWidgetItem(QString::number(unit.startAddress() + i));
-            QTableWidgetItem *valueItem = new QTableWidgetItem(QString::number(unit.value(i)));
-            addressItem->setFlags(addressItem->flags() ^ Qt::ItemIsEditable);
-
-            ui->tableWidget->setItem(i, 0, addressItem);
-            ui->tableWidget->setItem(i, 1, valueItem);
-        }*/
-        TRACE(tr("Lecture de %1 registres").arg(unit.valueCount()));
-    } else if (reply->error() == QModbusDevice::ProtocolError) {
-        EXIT(tr("Erreur réponse : %1 (Modbus Exception:  0x%2)").arg(reply->errorString()).arg(reply->rawResult().exceptionCode(), -1, 16));
-    }
-    else {
-        EXIT(tr("Erreur réponse : %1 (Code:  0x%2)").arg(reply->errorString()).arg(reply->error(), -1, 16));
-    }
-    reply->deleteLater();
-}
-
 int MainWindow::readOneRegister(int add) {
     QModbusReply *reply = m_modbusDevice->sendReadRequest(QModbusDataUnit(QModbusDataUnit::HoldingRegisters, add, 1), m_slaveId);
     int cpt=0;
     while (!reply->isFinished()){
-       // QThread::msleep(10);
-        TRACE("LOOPING");
+        // QThread::msleep(10);
+        qApp->processEvents();
         cpt++;
-        }
-    TRACE("Leaving the loop "+QString::number(cpt));
+    }
+    //TRACE("Leaving the loop "+QString::number(cpt));
     QModbusDataUnit QDU = reply->result();
+    if (reply->error() != QModbusDevice::NoError) {
+        EXIT("Read error")
+    }
     quint16 ans = QDU.value(0);
     return ans;
 }    // FIN int MainWindow::readOneRegister(int add) {
 // ***********************************************************************************************
-/*
-int MainWindow::readOneRegister(int add) {
-    if (auto *reply = m_modbusDevice->sendReadRequest(QModbusDataUnit(QModbusDataUnit::HoldingRegisters, add, 1), m_slaveId)) {
-        if (!reply->isFinished())  {
-            TRACE("connect");
-            connect(reply, &QModbusReply::finished, this, &MainWindow::readReady);
-        } else {
-            delete reply; // broadcast replies return immediately
-            TRACE(tr("Message de broadcast"));
-        }
-    } else {
-        QString aux = "Erreur de lecture: " + m_modbusDevice->errorString();
-        EXIT(tr("erreur de lecture "));
+
+void MainWindow::writeOneRegister(int add,int value) {
+    QModbusDataUnit writeUnit(QModbusDataUnit::HoldingRegisters, add, 1);
+    writeUnit.setValue(0, value); // Écriture de la valeur à écrire dans le premier registre
+    QModbusReply *reply = m_modbusDevice->sendWriteRequest(writeUnit, m_slaveId);
+    int cpt=0;
+    while (!reply->isFinished()){
+        qApp->processEvents();
+        cpt++;
     }
-}    // FIN int MainWindow::readOneRegister(int add) {
+    //TRACE("Write : leaving the loop "+QString::number(cpt));
+    QModbusDataUnit QDU = reply->result();
+    if (reply->error() != QModbusDevice::NoError) {
+            EXIT("Write error")
+    }
+}    // FIN void MainWindow::writeOneRegister(int add,int value) {
 // ***********************************************************************************************
-*/
+

@@ -108,9 +108,8 @@ private:
     int getValues(); // register values are read from the modbus
     int setValues(); // register values are written to the modbus
     void checkAlive();
-    int readOneRegister(int add);
-    void writeOneRegister(int add,int val);
-    void readReady();
+    int readOneRegister(int add);  // replace modbus_read_register
+    void writeOneRegister(int add,int val); // replace modbus_read_register
 };
 
 #define TRACE(msg) {QMessageBox mb;mb.setText(msg);mb.exec();}

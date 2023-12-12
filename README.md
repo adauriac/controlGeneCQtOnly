@@ -2,9 +2,8 @@
 On se passe de la librairie libmodbus et on utilise QMosBus
 
 # Etat actuel
-- AVEC LES TRACES se connecte, lit correctement le Version regiter
-- SANS LES TRACES se freeze. Pourquoi ? timer à mettre en place ?
-- ReadOneRegiter et weiteOnRegister  a finir
+- il faut mettre les commentaires et la doc
+- voir le comportement en cas d'erreur
 
 # Principes
 1. Affichage du choix des paramètres de la liaison série et attente de la validation du bouton **connexion**
